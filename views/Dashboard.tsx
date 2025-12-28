@@ -233,20 +233,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ onTokenSelect }) => {
         }
     };
 
-    const SortHeader = ({ label, sortKey, minWidth, rightAlign }: { label: string, sortKey: string, minWidth?: string, rightAlign?: boolean }) => {
+    const SortHeader = ({ label, sortKey, minWidth }: { label: string, sortKey: string, minWidth?: string }) => {
         const active = sortConfig?.key === sortKey;
         const dir = sortConfig?.direction;
         
         return (
             <th 
                 className={sortKey === 'ticker' ? "sticky-col" : ""} 
-                style={minWidth ? {minWidth} : undefined}
+                style={minWidth ? {minWidth} : { minWidth: '100px' }}
             >
                 <div 
-                    className={`flex items-center gap-1.5 cursor-pointer group select-none ${rightAlign ? 'justify-end' : ''}`}
+                    className={`flex items-center gap-1.5 cursor-pointer group select-none justify-start`}
                     onClick={() => handleSort(sortKey)}
                 >
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1 whitespace-nowrap">
                         {label.includes('Volume') || label.includes('Liquidity') || label.includes('MCap') || label.includes('Buys') || label.includes('Sells') ? <Info size={12} className="text-text-dark" /> : null}
                         {label}
                     </div>
@@ -322,15 +322,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ onTokenSelect }) => {
                         <table className="data-table">
                             <thead>
                                 <tr>
-                                    <SortHeader label="Chain Token" sortKey="ticker" minWidth="130px" />
-                                    <SortHeader label="Price" sortKey="price" />
-                                    <SortHeader label="Chg 24h" sortKey="change" minWidth="80px" rightAlign />
-                                    <SortHeader label="MCap" sortKey="cap" rightAlign />
-                                    <SortHeader label="DEX Volume" sortKey="volume" rightAlign />
-                                    <SortHeader label="Liquidity" sortKey="liquidity" rightAlign />
-                                    <SortHeader label="DEX Buys" sortKey="dexBuys" rightAlign />
-                                    <SortHeader label="DEX Sells" sortKey="dexSells" rightAlign />
-                                    <SortHeader label="DEX Flow" sortKey="netFlow" minWidth="120px" rightAlign />
+                                    <SortHeader label="Chain Token" sortKey="ticker" minWidth="150px" />
+                                    <SortHeader label="Price" sortKey="price" minWidth="100px" />
+                                    <SortHeader label="Chg 24h" sortKey="change" minWidth="90px" />
+                                    <SortHeader label="MCap" sortKey="cap" minWidth="100px" />
+                                    <SortHeader label="DEX Volume" sortKey="volume" minWidth="110px" />
+                                    <SortHeader label="Liquidity" sortKey="liquidity" minWidth="100px" />
+                                    <SortHeader label="DEX Buys" sortKey="dexBuys" minWidth="90px" />
+                                    <SortHeader label="DEX Sells" sortKey="dexSells" minWidth="90px" />
+                                    <SortHeader label="DEX Flow" sortKey="netFlow" minWidth="140px" />
                                 </tr>
                             </thead>
                             <tbody>
@@ -350,7 +350,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onTokenSelect }) => {
                                             className="cursor-pointer hover:bg-card-hover/50 transition-colors"
                                         >
                                             <td className="sticky-col">
-                                                <div className="flex items-center gap-2 w-[130px] max-w-[130px] overflow-hidden">
+                                                <div className="flex items-center gap-2 w-[150px] max-w-[150px] overflow-hidden">
                                                     <div className="w-5 h-5 flex items-center justify-center bg-card-hover rounded-full border border-border/50 shrink-0">
                                                         <img src={getChainIcon(coin.chain)} alt={coin.chain} className="w-3.5 h-3.5 opacity-80" />
                                                     </div>
@@ -362,18 +362,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ onTokenSelect }) => {
                                                 </div>
                                             </td>
                                             
-                                            <td className="font-mono text-xs text-text-light font-medium">{coin.price}</td>
-                                            <td className={`font-bold text-xs text-right ${getPercentColor(changeVal)}`}>{changeVal}</td>
-                                            <td className="font-medium text-xs text-text-light text-right">{coin.cap}</td>
-                                            <td className="text-xs font-medium text-text-light text-right">{coin.volume24h}</td>
-                                            <td className="font-medium text-xs text-text-medium text-right">{coin.liquidity}</td>
+                                            <td className="font-mono text-xs text-text-light font-medium text-left">{coin.price}</td>
+                                            <td className={`font-bold text-xs text-left ${getPercentColor(changeVal)}`}>{changeVal}</td>
+                                            <td className="font-medium text-xs text-text-light text-left">{coin.cap}</td>
+                                            <td className="text-xs font-medium text-text-light text-left">{coin.volume24h}</td>
+                                            <td className="font-medium text-xs text-text-medium text-left">{coin.liquidity}</td>
                                             
-                                            <td className="font-mono text-xs text-primary-green text-right">{coin.dexBuys}</td>
-                                            <td className="font-mono text-xs text-primary-red text-right">{coin.dexSells}</td>
+                                            <td className="font-mono text-xs text-primary-green text-left">{coin.dexBuys}</td>
+                                            <td className="font-mono text-xs text-primary-red text-left">{coin.dexSells}</td>
                                             
-                                            <td className="text-right">
-                                                <div className="flex items-center justify-end gap-2 w-full">
-                                                    <span className={`font-bold text-xs font-mono w-[60px] ${flowTextColor}`}>
+                                            <td className="text-left">
+                                                <div className="flex items-center justify-start gap-2 w-full">
+                                                    <span className={`font-bold text-xs font-mono w-[60px] text-left ${flowTextColor}`}>
                                                         {coin.netFlow}
                                                     </span>
                                                     <div className="w-16 h-1.5 bg-card-hover rounded-full overflow-hidden shrink-0">
