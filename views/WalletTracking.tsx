@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Search, ChevronDown, ChevronUp, Zap, ArrowLeft, RefreshCw, ArrowUpRight, ArrowDownLeft, Repeat, CheckCircle, AlertTriangle, Globe, Wallet as WalletIcon } from 'lucide-react';
 import { ChainRouter, PortfolioData } from '../services/ChainRouter';
+import { MarketCoin } from '../types';
 
 declare var ApexCharts: any;
 
@@ -16,7 +17,11 @@ interface WalletData {
     type: string;
 }
 
-export const WalletTracking: React.FC = () => {
+interface WalletTrackingProps {
+    onTokenSelect?: (token: MarketCoin | string) => void;
+}
+
+export const WalletTracking: React.FC<WalletTrackingProps> = ({ onTokenSelect }) => {
     const [viewMode, setViewMode] = useState<'dashboard' | 'profile'>('dashboard');
     const [selectedWallet, setSelectedWallet] = useState<WalletData | null>(null);
     const [activeFilter, setActiveFilter] = useState<string | null>(null);
@@ -317,7 +322,6 @@ export const WalletTracking: React.FC = () => {
                                     <thead className="bg-card-hover/50 text-xs text-text-dark uppercase font-bold">
                                         <tr>
                                             <th className="px-6 py-3 text-left">Asset</th>
-                                            <th className="px-6 py-3 text-right">Price</th>
                                             <th className="px-6 py-3 text-right">Balance</th>
                                             <th className="px-6 py-3 text-right">Value (USD)</th>
                                         </tr>
@@ -325,7 +329,7 @@ export const WalletTracking: React.FC = () => {
                                     <tbody className="divide-y divide-border/50">
                                         {loading ? (
                                             <tr>
-                                                <td colSpan={4} className="py-12 text-center text-text-medium">
+                                                <td colSpan={3} className="py-12 text-center text-text-medium">
                                                     <div className="flex flex-col items-center gap-3">
                                                         <RefreshCw className="animate-spin text-primary-green" size={24} />
                                                         <span>Scanning Blockchain...</span>
@@ -334,24 +338,28 @@ export const WalletTracking: React.FC = () => {
                                             </tr>
                                         ) : !portfolioData || portfolioData.assets.length === 0 ? (
                                             <tr>
-                                                <td colSpan={4} className="py-12 text-center text-text-medium">No assets found on this chain.</td>
+                                                <td colSpan={3} className="py-12 text-center text-text-medium">No assets found on this chain.</td>
                                             </tr>
                                         ) : (
                                             portfolioData.assets
                                             .filter(a => showDust || a.rawValue > 1) 
                                             .slice(0, visibleCount)
                                             .map((asset, i) => (
-                                                <tr key={i} className="hover:bg-card-hover/20 transition-colors">
+                                                <tr 
+                                                    key={i} 
+                                                    className="hover:bg-card-hover/20 transition-colors cursor-pointer group"
+                                                    onClick={() => onTokenSelect && onTokenSelect(asset.address || asset.symbol)}
+                                                    title={`View ${asset.symbol} details`}
+                                                >
                                                     <td className="px-6 py-4">
                                                         <div className="flex items-center gap-3">
                                                             <img src={asset.logo} alt={asset.symbol} className="w-8 h-8 rounded-full bg-main border border-border" onError={(e) => e.currentTarget.src='https://via.placeholder.com/32'} />
                                                             <div>
-                                                                <div className="font-bold text-text-light">{asset.symbol}</div>
+                                                                <div className="font-bold text-text-light group-hover:text-primary-green transition-colors">{asset.symbol}</div>
                                                                 <div className="text-[10px] text-text-medium">{chain}</div>
                                                             </div>
                                                         </div>
                                                     </td>
-                                                    <td className="px-6 py-4 text-right font-mono text-text-medium">{asset.price}</td>
                                                     <td className="px-6 py-4 text-right font-medium text-text-light">{asset.balance}</td>
                                                     <td className="px-6 py-4 text-right font-bold text-text-light">{asset.value}</td>
                                                 </tr>

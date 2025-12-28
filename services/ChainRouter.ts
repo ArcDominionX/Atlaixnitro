@@ -7,6 +7,7 @@ export interface PortfolioData {
     netWorth: string;
     assets: {
         symbol: string;
+        address: string;
         balance: string;
         value: string;
         price: string;
@@ -107,6 +108,7 @@ const fetchFromMoralis = async (chain: string, address: string): Promise<Portfol
 
         return {
             symbol: b.symbol,
+            address: b.token_address,
             balance: `${bal.toLocaleString(undefined, {maximumFractionDigits: 4})} ${b.symbol}`,
             value: `$${value.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
             price: `$${price.toLocaleString(undefined, {maximumFractionDigits: 6})}`,

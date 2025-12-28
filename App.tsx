@@ -82,7 +82,7 @@ export default function App() {
       case 'chatbot':
         return <Chatbot />;
       case 'wallet-tracking':
-        return <WalletTracking />;
+        return <WalletTracking onTokenSelect={handleTokenSelect} />;
       case 'safe-scan':
         return <SafeScan />;
       case 'smart-money':

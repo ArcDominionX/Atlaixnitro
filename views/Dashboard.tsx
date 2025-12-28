@@ -35,8 +35,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ onTokenSelect }) => {
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 20;
     
-    // Sorting State
-    const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>({ key: 'volume', direction: 'desc' });
+    // Sorting State - Default is null (Neutral/Algorithm Rank)
+    const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
 
     // Data & System State
     const [marketData, setMarketData] = useState<MarketCoin[]>([]);
@@ -73,14 +73,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ onTokenSelect }) => {
 
     const getChange = (coin: MarketCoin) => coin.h24;
 
+    // Sorting Handler - Implements Tri-State (Desc -> Asc -> Neutral)
     const handleSort = (key: string, specificDirection?: 'asc' | 'desc') => {
         if (specificDirection) {
             setSortConfig({ key, direction: specificDirection });
         } else {
             if (sortConfig?.key === key) {
-                setSortConfig({ key, direction: sortConfig.direction === 'asc' ? 'desc' : 'asc' });
+                if (sortConfig.direction === 'desc') {
+                    setSortConfig({ key, direction: 'asc' });
+                } else {
+                    setSortConfig(null); // Return to neutral (default algorithm sort)
+                }
             } else {
-                setSortConfig({ key, direction: 'desc' });
+                setSortConfig({ key, direction: 'desc' }); // New column starts descending (High to Low)
             }
         }
         setCurrentPage(1); 
@@ -88,7 +93,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onTokenSelect }) => {
 
     const sortedData = useMemo(() => {
         let data = [...marketData];
-        if (!sortConfig) return data;
+        if (!sortConfig) return data; // Neutral state returns data as-is (Hot Score sorted)
 
         return data.sort((a, b) => {
             const { key, direction } = sortConfig;
@@ -214,7 +219,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ onTokenSelect }) => {
         return Math.max(...marketData.map(c => Math.abs(parseCurrency(c.netFlow))));
     }, [marketData]);
 
-    const getPercentColor = (val: string) => val.includes('-') ? 'text-primary-red' : 'text-primary-green';
+    // Robust color logic for change percentage
+    const getPercentColor = (val: string) => {
+        // Remove % and , then parse
+        const num = parseFloat(val.replace(/[%+,]/g, ''));
+        if (num > 0) return 'text-primary-green';
+        if (num < 0) return 'text-primary-red';
+        return 'text-text-light'; // Neutral color for 0
+    };
 
     const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
         e.currentTarget.src = 'https://cryptologos.cc/logos/bitcoin-btc-logo.png'; 
@@ -245,14 +257,25 @@ export const Dashboard: React.FC<DashboardProps> = ({ onTokenSelect }) => {
                 <div 
                     className={`flex items-center gap-1.5 cursor-pointer group select-none justify-start`}
                     onClick={() => handleSort(sortKey)}
+                    title="Click to sort High/Low"
                 >
                     <div className="flex items-center gap-1 whitespace-nowrap">
                         {label.includes('Volume') || label.includes('Liquidity') || label.includes('MCap') || label.includes('Buys') || label.includes('Sells') ? <Info size={12} className="text-text-dark" /> : null}
                         {label}
                     </div>
                     <div className="flex flex-col gap-[2px]">
-                        <svg width="8" height="5" viewBox="0 0 8 5" fill="currentColor" className={`transition-colors cursor-pointer ${active && dir === 'asc' ? 'text-primary-green' : 'text-text-dark group-hover:text-text-medium'}`} onClick={(e) => { e.stopPropagation(); handleSort(sortKey, 'asc'); }}><path d="M4 0L8 5H0L4 0Z" /></svg>
-                        <svg width="8" height="5" viewBox="0 0 8 5" fill="currentColor" className={`transition-colors cursor-pointer ${active && dir === 'desc' ? 'text-primary-green' : 'text-text-dark group-hover:text-text-medium'}`} onClick={(e) => { e.stopPropagation(); handleSort(sortKey, 'desc'); }}><path d="M4 5L0 0H8L4 5Z" /></svg>
+                        {/* Up Arrow (Ascending) */}
+                        <svg width="8" height="5" viewBox="0 0 8 5" fill="currentColor" 
+                             className={`transition-colors cursor-pointer ${active && dir === 'asc' ? 'text-primary-green' : 'text-text-dark group-hover:text-text-medium'}`} 
+                             onClick={(e) => { e.stopPropagation(); handleSort(sortKey, 'asc'); }}>
+                            <path d="M4 0L8 5H0L4 0Z" />
+                        </svg>
+                        {/* Down Arrow (Descending) */}
+                        <svg width="8" height="5" viewBox="0 0 8 5" fill="currentColor" 
+                             className={`transition-colors cursor-pointer ${active && dir === 'desc' ? 'text-primary-green' : 'text-text-dark group-hover:text-text-medium'}`} 
+                             onClick={(e) => { e.stopPropagation(); handleSort(sortKey, 'desc'); }}>
+                            <path d="M4 5L0 0H8L4 5Z" />
+                        </svg>
                     </div>
                 </div>
             </th>
