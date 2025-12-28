@@ -12,6 +12,7 @@ const parseCurrency = (val: string | number) => {
     if (typeof val === 'number') return val;
     if (!val) return 0;
     
+    // Check for negative sign before stripping characters
     const isNegative = val.toString().includes('-');
     
     let clean = val.toString().replace(/[$,]/g, '');
@@ -21,6 +22,7 @@ const parseCurrency = (val: string | number) => {
     else if (clean.includes('M')) multiplier = 1e6;
     else if (clean.includes('K')) multiplier = 1e3;
     
+    // Remove suffixes and percentage signs
     clean = clean.replace(/[TBMK%+\-]/g, ''); 
     
     let result = parseFloat(clean) * multiplier;
@@ -78,6 +80,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onTokenSelect }) => {
         if (specificDirection) {
             setSortConfig({ key, direction: specificDirection });
         } else {
+            // Cycle: Default -> Desc -> Asc -> Default
             if (sortConfig?.key === key) {
                 if (sortConfig.direction === 'desc') {
                     setSortConfig({ key, direction: 'asc' });
@@ -88,19 +91,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ onTokenSelect }) => {
                 setSortConfig({ key, direction: 'desc' }); // New column starts descending (High to Low)
             }
         }
-        setCurrentPage(1); 
+        setCurrentPage(1); // Reset to first page on sort change
     };
 
     const sortedData = useMemo(() => {
         let data = [...marketData];
-        if (!sortConfig) return data; // Neutral state returns data as-is (Hot Score sorted)
+        if (!sortConfig) return data; // Neutral state returns data as-is (Hot Score sorted from service)
 
         return data.sort((a, b) => {
             const { key, direction } = sortConfig;
             
             const getValue = (item: MarketCoin) => {
                 if (key === 'createdTimestamp') return item.createdTimestamp; 
-                if (key === 'change') return parseFloat(item.h24.replace('%', '').replace(',', ''));
+                // Handle change specifically to parse percentage
+                if (key === 'change') return parseFloat(item.h24.replace(/[%+,]/g, ''));
                 if (key === 'ticker') return item.ticker;
                 if (key === 'price') return parseCurrency(item.price);
                 if (key === 'cap') return parseCurrency(item.cap);
@@ -108,7 +112,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onTokenSelect }) => {
                 if (key === 'volume') return parseCurrency(item.volume24h);
                 if (key === 'dexBuys') return parseCurrency(item.dexBuys);
                 if (key === 'dexSells') return parseCurrency(item.dexSells);
-                if (key === 'netFlow') return parseCurrency(item.netFlow.replace('+', ''));
+                if (key === 'netFlow') return parseCurrency(item.netFlow);
                 return 0;
             };
 
@@ -145,7 +149,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onTokenSelect }) => {
         let totalMarketVolume = 0;
         
         marketData.forEach(coin => {
-            const h24 = parseFloat(coin.h24.replace('%', ''));
+            const h24 = parseFloat(coin.h24.replace(/[%+,]/g, ''));
             const volume = parseCurrency(coin.volume24h);
             if (h24 > 0) bullishCount++;
             totalMarketVolume += volume;
@@ -219,13 +223,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ onTokenSelect }) => {
         return Math.max(...marketData.map(c => Math.abs(parseCurrency(c.netFlow))));
     }, [marketData]);
 
-    // Robust color logic for change percentage
+    // Color logic for change percentage
     const getPercentColor = (val: string) => {
-        // Remove % and , then parse
         const num = parseFloat(val.replace(/[%+,]/g, ''));
-        if (num > 0) return 'text-primary-green';
-        if (num < 0) return 'text-primary-red';
-        return 'text-text-light'; // Neutral color for 0
+        // Using !important to override the specific CSS selector .data-table td
+        if (num > 0) return '!text-primary-green';
+        if (num < 0) return '!text-primary-red';
+        return 'text-text-light'; 
     };
 
     const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
@@ -257,22 +261,22 @@ export const Dashboard: React.FC<DashboardProps> = ({ onTokenSelect }) => {
                 <div 
                     className={`flex items-center gap-1.5 cursor-pointer group select-none justify-start`}
                     onClick={() => handleSort(sortKey)}
-                    title="Click to sort High/Low"
+                    title="Click header to cycle: High -> Low -> Neutral"
                 >
-                    <div className="flex items-center gap-1 whitespace-nowrap">
+                    <div className={`flex items-center gap-1 whitespace-nowrap ${active ? 'text-text-light' : ''}`}>
                         {label.includes('Volume') || label.includes('Liquidity') || label.includes('MCap') || label.includes('Buys') || label.includes('Sells') ? <Info size={12} className="text-text-dark" /> : null}
                         {label}
                     </div>
                     <div className="flex flex-col gap-[2px]">
-                        {/* Up Arrow (Ascending) */}
+                        {/* Up Arrow (Ascending - Low to High) */}
                         <svg width="8" height="5" viewBox="0 0 8 5" fill="currentColor" 
-                             className={`transition-colors cursor-pointer ${active && dir === 'asc' ? 'text-primary-green' : 'text-text-dark group-hover:text-text-medium'}`} 
+                             className={`transition-colors cursor-pointer hover:text-primary-green ${active && dir === 'asc' ? 'text-primary-green' : 'text-text-dark'}`} 
                              onClick={(e) => { e.stopPropagation(); handleSort(sortKey, 'asc'); }}>
                             <path d="M4 0L8 5H0L4 0Z" />
                         </svg>
-                        {/* Down Arrow (Descending) */}
+                        {/* Down Arrow (Descending - High to Low) */}
                         <svg width="8" height="5" viewBox="0 0 8 5" fill="currentColor" 
-                             className={`transition-colors cursor-pointer ${active && dir === 'desc' ? 'text-primary-green' : 'text-text-dark group-hover:text-text-medium'}`} 
+                             className={`transition-colors cursor-pointer hover:text-primary-green ${active && dir === 'desc' ? 'text-primary-green' : 'text-text-dark'}`} 
                              onClick={(e) => { e.stopPropagation(); handleSort(sortKey, 'desc'); }}>
                             <path d="M4 5L0 0H8L4 5Z" />
                         </svg>
