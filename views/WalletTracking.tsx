@@ -114,6 +114,17 @@ export const WalletTracking: React.FC<WalletTrackingProps> = ({ onTokenSelect })
 
     useEffect(() => {
         if (viewMode === 'profile' && netWorthChartRef.current && typeof ApexCharts !== 'undefined' && !loading) {
+            // Cleanup previous instance
+            if (chartInstance.current) {
+                chartInstance.current.destroy();
+                chartInstance.current = null;
+            }
+
+            // CRITICAL: Clear the container div to prevent duplicate charts if destroy() lags or race condition occurs
+            if (netWorthChartRef.current) {
+                netWorthChartRef.current.innerHTML = '';
+            }
+
             const options = {
                 series: [{ name: 'Net Worth', data: [0, 0, 0, 0, 0, 0, 0, 0] }],
                 chart: { type: 'area', height: 280, background: 'transparent', toolbar: { show: false }, zoom: { enabled: false } },
@@ -128,11 +139,17 @@ export const WalletTracking: React.FC<WalletTrackingProps> = ({ onTokenSelect })
                 tooltip: { theme: 'dark' },
                 noData: { text: 'History N/A', style: { color: '#8F96A3' } }
             };
-            if (chartInstance.current) { chartInstance.current.destroy(); }
-            chartInstance.current = new ApexCharts(netWorthChartRef.current, options);
-            chartInstance.current.render();
+
+            const chart = new ApexCharts(netWorthChartRef.current, options);
+            chart.render();
+            chartInstance.current = chart;
         }
-        return () => { if (chartInstance.current) { chartInstance.current.destroy(); chartInstance.current = null; } };
+        return () => { 
+            if (chartInstance.current) { 
+                chartInstance.current.destroy(); 
+                chartInstance.current = null; 
+            } 
+        };
     }, [viewMode, loading]);
 
     const wallets: WalletData[] = [

@@ -12,10 +12,10 @@ const DEXSCREENER_PAIRS_URL = 'https://api.dexscreener.com/latest/dex/pairs';
 // Relaxed filters to ensure rapid population of 100+ tokens
 const REQUIREMENTS = {
     MIN_LIQUIDITY_USD: 100000,    
-    MIN_VOLUME_24H: 500,       
-    MIN_TXNS_24H: 5,            
-    MIN_FDV: 1000,
-    TARGET_LIST_SIZE: 150 // Keep searching until we hit this number
+    MIN_VOLUME_24H: 1000,       
+    MIN_TXNS_24H: 10,            
+    MIN_FDV: 5000,
+    TARGET_LIST_SIZE: 500 // Keep searching until we hit this number
 };
 
 const EXCLUDED_SYMBOLS = [
@@ -73,7 +73,7 @@ interface Cache {
     marketData: { data: MarketCoin[]; timestamp: number; } | null;
 }
 const cache: Cache = { marketData: null };
-const CACHE_FRESH_DURATION = 60000; 
+const CACHE_FRESH_DURATION = 15000; // Refresh every 15s to find new tokens continually
 
 // Helpers
 const formatCurrency = (value: number) => {
@@ -195,8 +195,8 @@ export const DatabaseService = {
             // We use 100% of bandwidth to SEARCH for new tokens.
             if (currentCount < REQUIREMENTS.TARGET_LIST_SIZE) {
                 // PHASE 1: POPULATION MODE
-                // Run 5 distinct search queries in parallel
-                const batchSize = 5;
+                // Run 10 distinct search queries in parallel to fill up fast
+                const batchSize = 10;
                 const end = Math.min(currentQueryIndex + batchSize, SHUFFLED_QUERIES.length);
                 const queries = SHUFFLED_QUERIES.slice(currentQueryIndex, end);
                 
@@ -209,7 +209,7 @@ export const DatabaseService = {
                 
             } else {
                 // PHASE 2: MAINTENANCE MODE
-                // We have enough tokens. Prioritize freshness.
+                // We have enough tokens. Prioritize freshness but keep discovering.
                 
                 // A. Update existing tokens (Bulk Endpoint is efficient)
                 const chainMap: Record<string, string[]> = {};
@@ -225,11 +225,14 @@ export const DatabaseService = {
                 const updateResults = await Promise.all(updatePromises);
                 updateResults.forEach(pairs => updatedPairs = [...updatedPairs, ...pairs]);
 
-                // B. Light Discovery (Run 1 single search just to find gems occasionally)
-                const query = SHUFFLED_QUERIES[currentQueryIndex];
-                currentQueryIndex = (currentQueryIndex + 1) % SHUFFLED_QUERIES.length;
-                const searchRes = await searchDexScreener(query);
-                newPairs = searchRes;
+                // B. Continuous Discovery (Run 3 searches to find gems)
+                const discoveryBatch = 3;
+                const end = Math.min(currentQueryIndex + discoveryBatch, SHUFFLED_QUERIES.length);
+                const queries = SHUFFLED_QUERIES.slice(currentQueryIndex, end);
+                currentQueryIndex = end >= SHUFFLED_QUERIES.length ? 0 : end;
+                
+                const searchResults = await Promise.all(queries.map(q => searchDexScreener(q)));
+                searchResults.forEach(pairs => newPairs = [...newPairs, ...pairs]);
             }
 
             // 2. Process & Merge Data
@@ -253,7 +256,7 @@ export const DatabaseService = {
                 if (EXCLUDED_SYMBOLS.includes(symbol)) continue;
                 if (!p.info?.imageUrl) continue; // Must have logo
                 
-                // Relaxed Quality Floors
+                // Quality Floors
                 const liq = p.liquidity?.usd || 0;
                 const vol = p.volume.h24 || 0;
                 if (liq < REQUIREMENTS.MIN_LIQUIDITY_USD) continue;
@@ -293,8 +296,8 @@ export const DatabaseService = {
             });
 
             // 5. Limit size & Sync
-            // Sync up to 300 to DB, return top set
-            const finalData = mergedList.slice(0, 300);
+            // Return top 500 to Ensure Continual Growth view
+            const finalData = mergedList.slice(0, 500);
 
             // Sync new discoveries to DB (Background)
             if (newPairs.length > 0 || updatedPairs.length > 0) {

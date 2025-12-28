@@ -61,7 +61,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onTokenSelect }) => {
         loadData(); 
         const interval = setInterval(() => {
             loadData(false);
-        }, 60000);
+        }, 15000);
         return () => clearInterval(interval);
     }, [timeFrame]); 
 
@@ -501,7 +501,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onTokenSelect }) => {
                         </div>
                         <div className="text-sm md:text-lg font-bold text-primary-green">0 Critical Risks</div>
                         <button className="mt-1.5 w-full bg-primary-green/10 border border-primary-green/30 text-primary-green text-[9px] md:text-[10px] font-bold py-1.5 rounded hover:bg-primary-green hover:text-main transition-colors uppercase tracking-wide">
-                            System Healthy
+                            Check Alert
                         </button>
                     </div>
                 </div>
