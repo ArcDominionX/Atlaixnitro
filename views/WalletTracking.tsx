@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Search, ChevronDown, ChevronUp, Zap, ArrowLeft, RefreshCw, ArrowUpRight, ArrowDownLeft, Repeat, CheckCircle, AlertTriangle, Globe, Wallet as WalletIcon } from 'lucide-react';
 import { ChainRouter, PortfolioData } from '../services/ChainRouter';
@@ -341,12 +342,14 @@ export const WalletTracking: React.FC<WalletTrackingProps> = ({ onTokenSelect })
                                             <th className="px-6 py-3 text-left">Asset</th>
                                             <th className="px-6 py-3 text-right">Balance</th>
                                             <th className="px-6 py-3 text-right">Value (USD)</th>
+                                            <th className="px-6 py-3 text-right">Avg Buy</th>
+                                            <th className="px-6 py-3 text-right">PnL</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-border/50">
                                         {loading ? (
                                             <tr>
-                                                <td colSpan={3} className="py-12 text-center text-text-medium">
+                                                <td colSpan={5} className="py-12 text-center text-text-medium">
                                                     <div className="flex flex-col items-center gap-3">
                                                         <RefreshCw className="animate-spin text-primary-green" size={24} />
                                                         <span>Scanning Blockchain...</span>
@@ -355,7 +358,7 @@ export const WalletTracking: React.FC<WalletTrackingProps> = ({ onTokenSelect })
                                             </tr>
                                         ) : !portfolioData || portfolioData.assets.length === 0 ? (
                                             <tr>
-                                                <td colSpan={3} className="py-12 text-center text-text-medium">No assets found on this chain.</td>
+                                                <td colSpan={5} className="py-12 text-center text-text-medium">No assets found on this chain.</td>
                                             </tr>
                                         ) : (
                                             portfolioData.assets
@@ -379,6 +382,18 @@ export const WalletTracking: React.FC<WalletTrackingProps> = ({ onTokenSelect })
                                                     </td>
                                                     <td className="px-6 py-4 text-right font-medium text-text-light">{asset.balance}</td>
                                                     <td className="px-6 py-4 text-right font-bold text-text-light">{asset.value}</td>
+                                                    <td className="px-6 py-4 text-right font-medium text-text-medium">
+                                                        {asset.avgBuy || <span className="opacity-50">-</span>}
+                                                    </td>
+                                                    <td className="px-6 py-4 text-right">
+                                                        {asset.pnl ? (
+                                                            <span className={`font-bold ${asset.pnlPercent && asset.pnlPercent >= 0 ? 'text-primary-green' : 'text-primary-red'}`}>
+                                                                {asset.pnl}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-text-dark text-xs">Simulated</span>
+                                                        )}
+                                                    </td>
                                                 </tr>
                                             ))
                                         )}

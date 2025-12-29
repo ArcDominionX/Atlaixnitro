@@ -1,3 +1,4 @@
+
 import { APP_CONFIG } from '../config';
 
 // API Key from Config
@@ -6,6 +7,7 @@ const MORALIS_API_KEY = APP_CONFIG.moralisKey;
 interface MoralisTransfer {
     transaction_hash: string;
     block_timestamp: string;
+    block_number: string;
     to_address: string;
     from_address: string;
     value: string; // Raw value
@@ -205,6 +207,81 @@ export const MoralisService = {
         } catch (error) {
             console.error("Failed to fetch wallet balances:", error);
             return [];
+        }
+    },
+
+    /**
+     * Get Token Price at a specific block (Historical Price)
+     */
+    getTokenPriceAtBlock: async (tokenAddress: string, chain: string, block?: string): Promise<number> => {
+        if (!tokenAddress) return 0;
+        const hexChain = mapChainToMoralisEVM(chain);
+        let url = `https://deep-index.moralis.io/api/v2.2/erc20/${tokenAddress}/price?chain=${hexChain}`;
+        
+        if (block) {
+            url += `&to_block=${block}`;
+        }
+
+        try {
+            const response = await fetch(url, {
+                headers: { 'accept': 'application/json', 'X-API-Key': MORALIS_API_KEY }
+            });
+            if (!response.ok) return 0;
+            const data = await response.json();
+            return data.usdPrice || 0;
+        } catch (e) {
+            return 0;
+        }
+    },
+
+    /**
+     * Estimates the cost basis (avg buy price) for a specific token in a wallet.
+     * Strategy:
+     * 1. Get last 20 transfers.
+     * 2. Identify incoming transfers (Buys).
+     * 3. Find the LARGEST buy transaction.
+     * 4. Get the historical price at that block.
+     * 5. Use that as the estimated entry price.
+     * Note: This is an estimation to save API calls vs calculating weighted average of all history.
+     */
+    getEstimatedCostBasis: async (walletAddress: string, tokenAddress: string, chain: string): Promise<number> => {
+        if (!walletAddress || !tokenAddress || chain.toLowerCase() === 'solana') return 0; // Solana history not fully supported on this free endpoint logic yet
+
+        const hexChain = mapChainToMoralisEVM(chain);
+        const url = `https://deep-index.moralis.io/api/v2.2/${walletAddress}/erc20/transfers?chain=${hexChain}&contract_addresses%5B0%5D=${tokenAddress}&order=DESC&limit=20`;
+
+        try {
+            const response = await fetch(url, {
+                headers: { 'accept': 'application/json', 'X-API-Key': MORALIS_API_KEY }
+            });
+
+            if (!response.ok) return 0;
+            const data = await response.json();
+            const transfers: MoralisTransfer[] = data.result || [];
+
+            if (transfers.length === 0) return 0;
+
+            // Filter for Incoming Transfers (Buys/Receives)
+            const incoming = transfers.filter(tx => tx.to_address.toLowerCase() === walletAddress.toLowerCase());
+            
+            if (incoming.length === 0) return 0;
+
+            // Find the largest single incoming transfer to use as the reference "Buy"
+            // This assumes the largest buy is the most significant for cost basis in a simplified model
+            const largestBuy = incoming.reduce((prev, current) => {
+                return parseFloat(current.value) > parseFloat(prev.value) ? current : prev;
+            });
+
+            // Fetch price at that specific block
+            if (largestBuy && largestBuy.block_number) {
+                return await MoralisService.getTokenPriceAtBlock(tokenAddress, chain, largestBuy.block_number);
+            }
+
+            return 0;
+
+        } catch (e) {
+            console.error("Error estimating cost basis", e);
+            return 0;
         }
     }
 };

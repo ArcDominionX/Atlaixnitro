@@ -1,3 +1,4 @@
+
 import { MoralisService, WalletBalance } from './MoralisService';
 import { DatabaseService } from './DatabaseService';
 
@@ -13,6 +14,9 @@ export interface PortfolioData {
         price: string;
         logo: string;
         rawValue: number;
+        avgBuy?: string;
+        pnl?: string;
+        pnlPercent?: number;
     }[];
     recentActivity: {
         type: string;
@@ -82,10 +86,10 @@ const fetchFromMoralis = async (chain: string, address: string): Promise<Portfol
         dexPrices = await DatabaseService.getBulkPrices(missingPriceAddresses);
     }
     
-    // 4. Activity (Still waiting for endpoint logic or mock removal)
-    
     let totalUsd = 0;
-    const assets = balances.map(b => {
+    
+    // 4. Process Assets & Calculate Values
+    const processedAssets = balances.map(b => {
         const decimals = b.decimals || 18;
         const bal = parseFloat(b.balance) / Math.pow(10, decimals);
         
@@ -109,6 +113,8 @@ const fetchFromMoralis = async (chain: string, address: string): Promise<Portfol
         return {
             symbol: b.symbol,
             address: b.token_address,
+            balanceObj: bal, // Internal numeric
+            currentPrice: price, // Internal numeric
             balance: `${bal.toLocaleString(undefined, {maximumFractionDigits: 4})} ${b.symbol}`,
             value: `$${value.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`,
             price: `$${price.toLocaleString(undefined, {maximumFractionDigits: 6})}`,
@@ -117,12 +123,43 @@ const fetchFromMoralis = async (chain: string, address: string): Promise<Portfol
         };
     }).sort((a, b) => b.rawValue - a.rawValue);
 
+    // 5. Calculate PnL for Significant Assets (Value > $1)
+    // We do this concurrently but limit to top 8 assets to prevent rate limits
+    const significantAssets = processedAssets.filter(a => a.rawValue > 1.0).slice(0, 8);
+    
+    const assetsWithPnL = await Promise.all(processedAssets.map(async (asset) => {
+        // Skip dust or if not in top list
+        if (asset.rawValue <= 1.0 || !significantAssets.find(sa => sa.address === asset.address)) {
+            return asset;
+        }
+
+        // Fetch estimated cost basis
+        const avgBuyPrice = await MoralisService.getEstimatedCostBasis(address, asset.address, chain);
+        
+        if (avgBuyPrice > 0) {
+            const pnlValue = (asset.currentPrice - avgBuyPrice) / avgBuyPrice * 100;
+            const pnlPrefix = pnlValue >= 0 ? '+' : '';
+            return {
+                ...asset,
+                avgBuy: `$${avgBuyPrice.toLocaleString(undefined, {maximumFractionDigits: 6})}`,
+                pnl: `${pnlPrefix}${pnlValue.toFixed(2)}%`,
+                pnlPercent: pnlValue
+            };
+        }
+        
+        return {
+            ...asset,
+            avgBuy: 'N/A',
+            pnl: 'N/A'
+        };
+    }));
+
+
     // Determine Chain Icon
     let chainIcon = 'https://cryptologos.cc/logos/ethereum-eth-logo.png';
     if (chain.toLowerCase() === 'solana') chainIcon = 'https://cryptologos.cc/logos/solana-sol-logo.png';
     if (chain.toLowerCase() === 'bsc') chainIcon = 'https://cryptologos.cc/logos/bnb-bnb-logo.png';
 
-    // No fake recent activity. If we don't have the endpoint connected, return empty.
     const recentActivity: any[] = [];
 
     return {
@@ -130,7 +167,7 @@ const fetchFromMoralis = async (chain: string, address: string): Promise<Portfol
         providerUsed: 'Moralis',
         timestamp: Date.now(),
         chainIcon: chainIcon,
-        assets: assets,
+        assets: assetsWithPnL,
         recentActivity: recentActivity
     };
 };

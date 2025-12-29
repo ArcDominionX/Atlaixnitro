@@ -140,10 +140,14 @@ const updatePairsBulk = async (chainId: string, pairAddresses: string[]): Promis
         }
 
         const results = await Promise.all(chunks.map(async chunk => {
-            const url = `${DEXSCREENER_PAIRS_URL}/${chainId}/${chunk.join(',')}`;
-            const res = await fetch(url);
-            if (!res.ok) return { pairs: [] };
-            return res.json();
+            try {
+                const url = `${DEXSCREENER_PAIRS_URL}/${chainId}/${chunk.join(',')}`;
+                const res = await fetch(url);
+                if (!res.ok) return { pairs: [] };
+                return await res.json();
+            } catch (err) {
+                return { pairs: [] };
+            }
         }));
 
         let allPairs: DexPair[] = [];
@@ -327,18 +331,26 @@ export const DatabaseService = {
     getBulkPrices: async (tokenAddresses: string[]): Promise<Record<string, number>> => {
         if (!tokenAddresses.length) return {};
         
+        // Deduplicate addresses to minimize requests
+        const uniqueAddresses = [...new Set(tokenAddresses)];
+        
         try {
             // Chunk into 30s as DexScreener limits tokens endpoint to 30 addresses
             const chunks = [];
-            for (let i = 0; i < tokenAddresses.length; i += 30) {
-                chunks.push(tokenAddresses.slice(i, i + 30));
+            for (let i = 0; i < uniqueAddresses.length; i += 30) {
+                chunks.push(uniqueAddresses.slice(i, i + 30));
             }
 
             const results = await Promise.all(chunks.map(async chunk => {
-                const url = `https://api.dexscreener.com/latest/dex/tokens/${chunk.join(',')}`;
-                const res = await fetch(url);
-                if (!res.ok) return { pairs: [] };
-                return res.json();
+                try {
+                    const url = `https://api.dexscreener.com/latest/dex/tokens/${chunk.join(',')}`;
+                    const res = await fetch(url);
+                    if (!res.ok) return { pairs: [] };
+                    return await res.json();
+                } catch (err) {
+                    // Silently fail individual chunks to avoid breaking the whole batch
+                    return { pairs: [] };
+                }
             }));
 
             const priceMap: Record<string, number> = {};
@@ -349,7 +361,7 @@ export const DatabaseService = {
                     const addr = pair.baseToken.address.toLowerCase();
                     // If we don't have a price yet, or this pair has better liquidity/is USD based, use it.
                     // For MVP simplicity, we just use the first valid priceUsd we find for this token.
-                    if (!priceMap[addr] && pair.priceUsd) {
+                    if (pair.baseToken.address.toLowerCase() === addr && pair.priceUsd) {
                          priceMap[addr] = parseFloat(pair.priceUsd);
                     }
                 });
